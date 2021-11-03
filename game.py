@@ -85,24 +85,23 @@ class GameFrame():
         self._grid = np.zeros( ( int((corner_dist - self._center_radius) / GameFrame.dr), int(360 / GameFrame.dtheta)), np.int32 )
         self._real_coords = np.zeros( (self._grid.shape[0], self._grid.shape[1], 2), np.int32)
 
-        player_dist = float('inf')
-        player_closest = (-1, -1)
+        player_vector = (self._closest[0] - self._center[0], self._closest[1] - self._center[1])
+        player_theta = math.atan(player_vector[1] / player_vector[0])
+        if player_vector[0] < 0:
+            player_theta += math.pi
+        player_theta = math.degrees(player_theta)
+
+        self._player_theta = player_theta
         
         for y in range(self._grid.shape[0]):
             for x in range(self._grid.shape[1]):            
                 r = (GameFrame.dr * y) + self._center_radius
-                theta = GameFrame.dtheta * x
+                theta = (GameFrame.dtheta * x) - self._player_theta
                 
                 realx = int(self._center[0] + r * math.cos(math.radians(theta)))
                 realy = int(self._center[1] - r * math.sin(math.radians(theta)))
 
                 self._real_coords[y, x] = (realx, realy)
-
-                if y == 0:
-                    currdist = _point_dist((realx, realy), self._closest)
-                    if currdist < player_dist:
-                        player_dist = currdist
-                        player_closest = (x, y)
                 
                 if realx < 0 or realx >= self._dims[1]:
                     self._grid[y][x] = GameFrame._GRID_OOB
@@ -111,7 +110,7 @@ class GameFrame():
                     self._grid[y][x] = GameFrame._GRID_OOB
                     continue
 
-                if y > 0:
+                if y > 1:
                     area_around = self._thresh[max(0, realy-GameFrame.too_close):min(self._dims[0], realy+GameFrame.too_close),max(0, realx-GameFrame.too_close):min(self._dims[1], realx+GameFrame.too_close)]
                     if area_around.max() > 0:
                         self._grid[y][x] = GameFrame._GRID_BLOCKED
@@ -121,16 +120,13 @@ class GameFrame():
                         self._grid[y][x] = GameFrame._GRID_BLOCKED
                         continue
                 self._grid[y][x] = GameFrame._GRID_OPEN
-        
-        self._player_closest = player_closest
 
     def _estimate_cost(self, point):
         return self._grid.shape[0] - point[1]
 
     def findPath(self):
         dirs = [(0, 1), (1, 0), (-1, 0), (0, -1)]
-        closest = tuple(self._player_closest)
-        openset = [AStar_Node(closest, None, 0, self._estimate_cost(closest))]
+        openset = [AStar_Node((0,0), None, 0, self._estimate_cost((0,0)))]
         visited = set()
 
         self._path = []
@@ -151,9 +147,8 @@ class GameFrame():
                     continue
                 if self._grid[newpoint[1],newpoint[0]] == GameFrame._GRID_BLOCKED:
                     continue
-                newnode = AStar_Node(newpoint, curr, curr.pathlen + 1, curr.pathlen + 1 + self._estimate_cost(newpoint))
+                newnode = AStar_Node(newpoint, curr, curr.pathlen + 1, curr.pathlen + 1 + (2 * curr.point[1]) + self._estimate_cost(newpoint))
                 heapq.heappush(openset, newnode)
-
                 
     def showPlottedPath(self):
         rgbthresh = cv.cvtColor(self._thresh, cv.COLOR_GRAY2BGR)
@@ -163,8 +158,12 @@ class GameFrame():
                     continue
 
                 realx, realy = self._real_coords[y, x]
+
+                if x == 0 and y == 0:
+                    cv.circle(rgbthresh, (realx, realy), 2, (0, 0, 255), -1)
+                else:
+                    cv.circle(rgbthresh, (realx, realy), 2, (255, 0, 255), -1)
                 
-                cv.circle(rgbthresh, (realx, realy), 2, (255, 0, 255), -1)
 
         if len(self._path) > 0:
             for i in range(len(self._path) - 1):
@@ -194,7 +193,7 @@ class GameFrame():
                 dx = -1
             else:
                 dx = 1
-                
+
         assert (dx == 0 or abs(dx) == 1) and (dy == 0 or abs(dy) == 1)
         assert dx != dy
 
