@@ -31,14 +31,14 @@ for i, inf in enumerate(inpath.glob("*.png")):
 
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
     
-    try:
-        frame = game.GameFrame(gray)
-    except ValueError:
-        continue
-    
-    frame.findPath()
+    frame = game.GameFrame(gray, 20, 10, 15)
+    if frame.is_valid():
+        frame.findPath()
 
-    plotted = frame.showPlottedPath()
+        plotted = frame.showPlottedPath()
+    else:
+        plotted = cv.cvtColor(frame._thresh, cv.COLOR_GRAY2BGR)
+        cv.rectangle(plotted, (5, 5), (plotted.shape[1]-5, plotted.shape[0]-5), (0, 0, 255), 10)
 
     vis = np.concatenate((img, plotted), axis=0)
     cv.imwrite(str(outf), vis)
