@@ -63,9 +63,9 @@ class GameFrame():
 
             area = cv.contourArea(approx)
 
-            if contour[:,:,0].min() < 50 or contour[:,:,0].max() > (playerThresh.shape[1] - 50):
+            if contour[:,:,0].min() < 25 or contour[:,:,0].max() > (playerThresh.shape[1] - 25):
                 continue
-            if contour[:,:,1].min() < 50 or contour[:,:,1].max() > (playerThresh.shape[0] - 50):
+            if contour[:,:,1].min() < 25 or contour[:,:,1].max() > (playerThresh.shape[0] - 25):
                 continue
             if area < 45 or area > 160:
                 continue
