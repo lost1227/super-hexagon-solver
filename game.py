@@ -17,15 +17,11 @@ class AStar_Node():
         return self.totalcost < other.totalcost
 
 class GameFrame():
-    too_close = 15
-    dr = 20
-    dtheta = 10
-
     _GRID_OPEN = 4
     _GRID_OOB = 2
     _GRID_BLOCKED = 1
 
-    def __init__(self, frame):
+    def __init__(self, frame, dr, dtheta, too_close):
         if frame is None:
             raise ValueError("No frame provided")
         self._frame = frame
@@ -38,9 +34,12 @@ class GameFrame():
         self._threshold()
         self._find_player_contour()
         if self._player_contour is None:
-            raise ValueError("Could not locate player")
+            return
         self._cover_center()
-        self._setup_search_grid()
+        self._setup_search_grid(dr, dtheta, too_close)
+
+    def is_valid(self):
+        return self._player_contour is not None
 
     def _cover_ui(self):
     
@@ -72,21 +71,29 @@ class GameFrame():
                 continue
 
             self._player_contour = approx + (330, 150)
+        if self._player_contour is not None:
+            boundRect = cv.boundingRect(self._player_contour)
+            cv.rectangle(self._thresh, boundRect, 0, -1)
     
     def _cover_center(self):
         squeezedPlayer = np.squeeze(self._player_contour)
         self._closest = min(squeezedPlayer, key=lambda point: (point[0] - self._center[0])**2 + (point[1] - self._center[1])**2)
         
         self._center_radius = _point_dist(self._center, self._closest)
-        cv.circle(self._thresh, np.int32(self._center), int(self._center_radius - GameFrame.too_close - 1), 255, -1)
+        cv.circle(self._thresh, np.int32(self._center), int(self._center_radius), 0, -1)
         
-    def _setup_search_grid(self):
+    def _setup_search_grid(self, dr, dtheta, too_close):
         corner_dist = _point_dist((0,0), self._center)
-        self._grid = np.zeros( ( int((corner_dist - self._center_radius) / GameFrame.dr), int(360 / GameFrame.dtheta)), np.int32 )
+        self._grid = np.zeros( ( int((corner_dist - self._center_radius) / dr), int(360 / dtheta)), np.int32 )
         self._real_coords = np.zeros( (self._grid.shape[0], self._grid.shape[1], 2), np.int32)
 
         player_vector = (self._closest[0] - self._center[0], self._closest[1] - self._center[1])
-        player_theta = math.atan(player_vector[1] / player_vector[0])
+
+        if player_vector[0] == 0:
+            player_theta = math.pi / 2 if player_vector[1] > 0 else -1 *math.pi / 2
+        else:
+            player_theta = math.atan(player_vector[1] / player_vector[0])
+
         if player_vector[0] < 0:
             player_theta += math.pi
         player_theta = math.degrees(player_theta)
@@ -95,8 +102,8 @@ class GameFrame():
         
         for y in range(self._grid.shape[0]):
             for x in range(self._grid.shape[1]):            
-                r = (GameFrame.dr * y) + self._center_radius
-                theta = (GameFrame.dtheta * x) - self._player_theta
+                r = (dr * y) + self._center_radius
+                theta = (dtheta * x) - self._player_theta
                 
                 realx = int(self._center[0] + r * math.cos(math.radians(theta)))
                 realy = int(self._center[1] - r * math.sin(math.radians(theta)))
@@ -110,15 +117,10 @@ class GameFrame():
                     self._grid[y][x] = GameFrame._GRID_OOB
                     continue
 
-                if y > 1:
-                    area_around = self._thresh[max(0, realy-GameFrame.too_close):min(self._dims[0], realy+GameFrame.too_close),max(0, realx-GameFrame.too_close):min(self._dims[1], realx+GameFrame.too_close)]
-                    if area_around.max() > 0:
-                        self._grid[y][x] = GameFrame._GRID_BLOCKED
-                        continue
-                else:
-                    if self._thresh[realy,realx] > 0:
-                        self._grid[y][x] = GameFrame._GRID_BLOCKED
-                        continue
+                area_around = self._thresh[max(0, realy-too_close):min(self._dims[0], realy+too_close),max(0, realx-too_close):min(self._dims[1], realx+too_close)]
+                if area_around.max() > 0:
+                    self._grid[y][x] = GameFrame._GRID_BLOCKED
+                    continue
                 self._grid[y][x] = GameFrame._GRID_OPEN
 
     def _estimate_cost(self, point):

@@ -45,4 +45,4 @@ for i, inf in enumerate(inpath.glob("*.png")):
     
     diff = time.time() - start
 
-    print("Frame {} took {:02f}s ({:02f} fps)".format(i, diff, 1/diff))
+    print("Frame {} took {:.2f}s ({:.2f} fps)".format(i, diff, 1/diff))
