@@ -6,6 +6,18 @@ import time
 import keys
 
 import game
+import shutil
+
+from pathlib import Path
+
+errordir = Path('./errors')
+
+if errordir.is_dir():
+    shutil.rmtree(errordir)
+elif errordir.is_file():
+    errordir.unlink()
+
+errordir.mkdir()
 
 def find_window_coords():
     coords = None
@@ -31,6 +43,8 @@ lastKey = None
 record = False
 
 show = True
+
+i = 0
 
 with mss() as sct:
     window = find_window_coords()
@@ -76,9 +90,16 @@ with mss() as sct:
                 lastKey = nextKey
                 if nextKey is not None:
                     keys.PressKey(lastKey)
-            elif show or record:
-                plotted = cv.cvtColor(frame._thresh, cv.COLOR_GRAY2BGR)
-                cv.rectangle(plotted, (5, 5), (plotted.shape[1]-5, plotted.shape[0]-5), (0, 0, 255), 10)
+            else:
+                if show or record:
+                    cv.imwrite(str(errordir / '{}.png'.format(i)), img)
+                    i += 1
+                    plotted = cv.cvtColor(frame._thresh, cv.COLOR_GRAY2BGR)
+                    cv.rectangle(plotted, (5, 5), (plotted.shape[1]-5, plotted.shape[0]-5), (0, 0, 255), 10)
+                if lastKey is not None:
+                    keys.ReleaseKey(lastKey)
+                lastKey = None
+                
 
             if show or record:
                 vis = np.concatenate((img, plotted), axis=0)
