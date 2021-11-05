@@ -49,6 +49,8 @@ int main(int argc, char* argv[])
         ParsedFrame frame(bw);
 
         cvtColor(frame.getThresh(), plotted, COLOR_GRAY2BGR);
+        if(!frame.getPlayerContour().empty())
+            drawContours(plotted, vector<vector<Point>>{ frame.getPlayerContour() }, 0, Scalar(0, 255, 255), FILLED);
 
         vconcat(image, plotted, vis);
 
