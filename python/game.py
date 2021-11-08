@@ -2,6 +2,30 @@ import cv2 as cv
 import numpy as np
 import math
 import heapq
+import time
+
+_threshmap = [
+    58, # [0, 10)
+    80, # [10, 20)
+    90, # [20, 30)
+    80, # [30, 40)
+    80, # [40, 50)
+    80, # [50, 60)
+    80, # [60, 70)
+    80, # [70, 80)
+    80, # [80, 90)
+    80, # [90, 100)
+    80, # [100, 110)
+    69, # [110, 120)
+    63, # [120, 130)
+    68, # [130, 140)
+    80, # [140, 150)
+    80, # [150, 160)
+    80, # [160, 170)
+    58, # [170, 180)
+]
+
+_debug_contours = False
 
 def _point_dist(point1, point2):
     return math.sqrt((point1[0] - point2[0])**2 + (point1[1] - point2[1])**2)
@@ -16,15 +40,29 @@ class AStar_Node():
     def __lt__(self, other):
         return self.totalcost < other.totalcost
 
+class _GridParams:
+    def __init__(self, dr, dtheta, too_close):
+        self.dr = dr
+        self.dtheta = dtheta
+        self.too_close = too_close
+
 class GameFrame():
     _GRID_OPEN = 4
     _GRID_OOB = 2
     _GRID_BLOCKED = 1
 
-    def __init__(self, frame, dr, dtheta, too_close):
-        if frame is None:
-            raise ValueError("No frame provided")
-        self._frame = frame
+    _gridParams = [
+        _GridParams(25, 10, 15),
+        #_GridParams(20, 8, 15),
+        #_GridParams(10, 8, 15),
+        _GridParams(10, 8, 5)
+    ]
+
+    _maxPathTime = 0.1
+
+    def __init__(self, frame):
+        self._colorframe = frame
+        self._frame = cv.cvtColor(frame, cv.COLOR_BGR2GRAY)
         self._dims = frame.shape
         self._center = (self._dims[1] / 2, self._dims[0] / 2)
 
@@ -36,21 +74,33 @@ class GameFrame():
         if self._player_contour is None:
             return
         self._cover_center()
-        self._setup_search_grid(dr, dtheta, too_close)
+        for i, param in enumerate(GameFrame._gridParams):
+            self._gridPrecisionLevel = i
+            self._setup_search_grid(param.dr, param.dtheta, param.too_close)
+            self._find_path()
+            if len(self._path) > 0:
+                break
 
     def is_valid(self):
         return self._player_contour is not None
 
     def _cover_ui(self):
     
-        color = int(self._frame[70:,:].max())
+        #color = int(self._frame[70:,:].max())
+        color = 255
     
         cv.rectangle(self._frame, (0, 0), (264, 40), color, -1)
         cv.rectangle(self._frame, (self._dims[1]-350,0), (self._dims[1]-1,66), color, -1)
 
     def _threshold(self):
-        frame = cv.blur(self._frame, (3,3))
-        _, self._thresh = cv.threshold(self._frame, 100, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
+        searchArea = self._colorframe[150:445,330:630]
+        hsv = cv.cvtColor(searchArea, cv.COLOR_BGR2HSV)
+        huehist, _ = np.histogram(hsv[:,:,0], bins=range(0, 181, 10))
+        hueidx = huehist.argmax()
+        threshval = _threshmap[hueidx]
+        self._debugThreshInfo = (hueidx, threshval)
+        #_, self._thresh = cv.threshold(self._frame, 100, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
+        _, self._thresh = cv.threshold(self._frame, threshval, 255, cv.THRESH_BINARY)
 
     def _find_player_contour(self):
         playerThresh = self._thresh[150:445,330:630]
@@ -62,12 +112,20 @@ class GameFrame():
             approx = cv.approxPolyDP(contour, 0.005 * cv.arcLength(contour, True), True)
 
             area = cv.contourArea(approx)
+            
+            if _debug_contours:
+                print(area)
+                copy = cv.cvtColor(playerThresh, cv.COLOR_GRAY2BGR)
+                cv.drawContours(copy, [approx], 0, (0, 255, 255), -1)
+                cv.imshow('Contour', copy)
+                cv.waitKey(0)
+                cv.destroyWindow('Contour')
 
             if contour[:,:,0].min() < 25 or contour[:,:,0].max() > (playerThresh.shape[1] - 25):
                 continue
             if contour[:,:,1].min() < 25 or contour[:,:,1].max() > (playerThresh.shape[0] - 25):
                 continue
-            if area < 45 or area > 160:
+            if area < 25 or area > 160:
                 continue
 
             self._player_contour = approx + (330, 150)
@@ -126,13 +184,17 @@ class GameFrame():
     def _estimate_cost(self, point):
         return self._grid.shape[0] - point[1]
 
-    def findPath(self):
+    def _find_path(self):
         dirs = [(0, 1), (1, 0), (-1, 0), (0, -1)]
         openset = [AStar_Node((0,0), None, 0, self._estimate_cost((0,0)))]
         visited = set()
 
+        timeout = time.time()
+
         self._path = []
         while len(openset) > 0:
+            if time.time() - timeout > GameFrame._maxPathTime:
+                break
             curr = heapq.heappop(openset)
             visited.add(curr.point)
             if self._grid[curr.point[1],curr.point[0]] == GameFrame._GRID_OOB or curr.point[1] == self._grid.shape[0] - 1:
@@ -149,7 +211,8 @@ class GameFrame():
                     continue
                 if self._grid[newpoint[1],newpoint[0]] == GameFrame._GRID_BLOCKED:
                     continue
-                newnode = AStar_Node(newpoint, curr, curr.pathlen + 1, curr.pathlen + 1 + (2 * curr.point[1]) + self._estimate_cost(newpoint))
+                stepCost = 1 + 1 * curr.point[1]
+                newnode = AStar_Node(newpoint, curr, curr.pathlen + 1, curr.pathlen + stepCost + self._estimate_cost(newpoint))
                 heapq.heappush(openset, newnode)
                 
     def showPlottedPath(self):
@@ -181,6 +244,8 @@ class GameFrame():
         nextMove = self.getNextMove()
         if nextMove is not None:
             cv.putText(rgbthresh, nextMove, (self._dims[1]-345,61), cv.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
+        cv.putText(rgbthresh, "Grid {}".format(self._gridPrecisionLevel), (10, rgbthresh.shape[0] - 40), cv.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 255), 1)
+        cv.putText(rgbthresh, "Threshold {} {}".format(self._debugThreshInfo[0], self._debugThreshInfo[1]), (10, rgbthresh.shape[0] - 20), cv.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 255), 1)
         return rgbthresh
 
     def getNextMove(self):
