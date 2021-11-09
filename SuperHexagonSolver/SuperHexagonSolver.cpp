@@ -21,7 +21,6 @@ int main(int argc, char* argv[])
     filesystem::path outfile;
 
     Mat image;
-    Mat bw;
     Mat plotted;
     Mat vis;
 
@@ -43,14 +42,9 @@ int main(int argc, char* argv[])
             cout << "Could not open or find the image " << infile.string() << endl;
             continue;
         }
+        ParsedFrame frame(image);
 
-        cvtColor(image, bw, COLOR_BGR2GRAY);
-
-        ParsedFrame frame(bw);
-
-        cvtColor(frame.getThresh(), plotted, COLOR_GRAY2BGR);
-        if(!frame.getPlayerContour().empty())
-            drawContours(plotted, vector<vector<Point>>{ frame.getPlayerContour() }, 0, Scalar(0, 255, 255), FILLED);
+        plotted = frame.showPlottedPath();
 
         vconcat(image, plotted, vis);
 

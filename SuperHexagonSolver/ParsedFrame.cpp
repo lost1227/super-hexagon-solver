@@ -1,9 +1,12 @@
 #include "ParsedFrame.h"
 
+#define _USE_MATH_DEFINES
+
 #include <cassert>
 #include <cmath>
 #include <algorithm>
 #include <limits>
+#include <format>
 
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
@@ -11,23 +14,59 @@
 
 #include <opencv2/highgui.hpp>
 
+
 using namespace std;
 using namespace cv;
 
+const ParsedFrame::GridParams ParsedFrame::params[] = { GridParams(25, 10, 15), GridParams(10, 8, 5) };
+
+const int threshmap[] = {
+    58, // [0, 7)
+    70, // [7, 10)
+    80, // [10, 15)
+    85, // [15, 20)
+    90, // [20, 30)
+    80, // [30, 40)
+    80, // [40, 50)
+    80, // [50, 60)
+    80, // [60, 70)
+    80, // [70, 80)
+    80, // [80, 90)
+    80, // [90, 100)
+    70, // [100, 110)
+    69, // [110, 120)
+    63, // [120, 130)
+    68, // [130, 140)
+    80, // [140, 150)
+    80, // [150, 160)
+    80, // [160, 170)
+    62, // [170, 180]
+};
+
+const float bins[] = { 0, 7, 10, 15, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180 };
+
 ParsedFrame::ParsedFrame(const Mat& frame, int dr, int dtheta, int too_close)
-    : frame(frame)
+    : colorFrame(frame)
     , dr(dr)
     , dtheta(dtheta)
     , too_close(too_close)
     , center(frame.size[1] / 2, frame.size[0] / 2)
 {
-    assert(frame.channels() == 1);
+    assert(frame.channels() == 3);
+    cvtColor(frame, this->frame, COLOR_BGR2GRAY);
     cover_ui();
     threshold();
     find_player();
     if (player_contour.empty())
         return;
     cover_center();
+    for (int i = 0; i < (sizeof(params) / sizeof(ParsedFrame::GridParams)); i++) {
+        const ParsedFrame::GridParams& params = ParsedFrame::params[i];
+        gridPrecisionLevel = i;
+        setup_search_grid(params.dr, params.dtheta, params.too_close);
+        find_path();
+        return;
+    }
 }
 
 void ParsedFrame::cover_ui() {
@@ -38,9 +77,29 @@ void ParsedFrame::cover_ui() {
 }
 
 void ParsedFrame::threshold() {
+    Mat searchArea = colorFrame(Range(150, 445), Range(330, 630));
     Mat blurred;
+    Mat hsv;
+    Mat hist;
+    cvtColor(searchArea, hsv, COLOR_BGR2HSV);
+
+    vector<Mat> hsv_planes;
+    split(hsv, hsv_planes);
+
+    int histSize = (sizeof(bins) / sizeof(int)) - 1;
+    const float* histRange[] = { bins };
+
+    calcHist(&hsv_planes[0] , 1, 0, Mat(), hist, 1, &histSize, histRange, false, false);
+
+    int maxIdx[2];
+    minMaxIdx(hist, nullptr, nullptr, nullptr, maxIdx);
+
+    int threshval = threshmap[maxIdx[0]];
+    debugThreshInfo[0] = maxIdx[0];
+    debugThreshInfo[1] = threshval;
+
     blur(frame, blurred, Size(3, 3));
-    cv::threshold(blurred, thresh, 100, 225, THRESH_BINARY | THRESH_OTSU);
+    cv::threshold(blurred, thresh, threshval, 255, THRESH_BINARY);
 }
 
 void ParsedFrame::find_player() {
@@ -48,6 +107,7 @@ void ParsedFrame::find_player() {
     Point2i playerThreshOrigin(center.x - (playerThreshSize.width / 2), center.y - (playerThreshSize.height / 2));
     Mat playerThresh = thresh(Rect2i(playerThreshOrigin, playerThreshSize));
     vector<vector<Point>> contours;
+    vector<pair<vector<Point>, int>> candidate_players;
     vector<Point> approx;
     Rect2i contourBounds;
 
@@ -61,13 +121,17 @@ void ParsedFrame::find_player() {
         if (contourBounds.y < 15 || contourBounds.y + contourBounds.height > playerThreshSize.height - 15)
             continue;
         int area = contourArea(approx);
-        if (area < 45 || area > 160)
+        if (area < 2 || area > 160)
             continue;
         for (auto& point : approx) {
             point += playerThreshOrigin;
         }
-        player_contour = approx;
-        break;
+        candidate_players.push_back(pair(move(approx), area));
+    }
+
+    auto player_contour_iter = max_element(candidate_players.begin(), candidate_players.end(), [](auto p1, auto p2) -> bool { return p1.second < p2.second; });
+    if (player_contour_iter != candidate_players.end()) {
+        player_contour = move(player_contour_iter->first);
     }
 
     if (!player_contour.empty()) {
@@ -89,6 +153,89 @@ void ParsedFrame::cover_center() {
     }
     this->player_point = player_closest;
 
-    double center_radius = norm(player_point - center);
+    center_radius = norm(player_point - center);
     circle(thresh, center, center_radius, 0, FILLED);
+}
+
+Mat ParsedFrame::showPlottedPath() const {
+    Mat bgrthresh;
+    cvtColor(thresh, bgrthresh, COLOR_GRAY2BGR);
+
+    if (grid.data != NULL) {
+        for (int y = 0; y < grid.size[0]; ++y) {
+            for (int x = 0; x < grid.size[1]; ++x) {
+                if (grid.at<char>(y, x) != (char)GridVals::GRID_OPEN) {
+                    continue;
+                }
+
+                Point2i real = realCoords.at<Point2i>(y, x);
+
+                circle(bgrthresh, real, 2, Scalar(255, 0, 255), FILLED);
+            }
+        }
+    }
+
+    if (!player_contour.empty()) {
+        drawContours(bgrthresh, vector<vector<Point>>{ player_contour }, 0, Scalar(0, 255, 255), FILLED);
+    }
+
+    string threshInfo = std::format("Threshold {} {}", debugThreshInfo[0], debugThreshInfo[1]);
+    putText(bgrthresh, threshInfo, Point(10, bgrthresh.size[0] - 20), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(255, 0, 255), 1);
+
+    return bgrthresh;
+}
+
+void ParsedFrame::setup_search_grid(int dr, int dtheta, int too_close) {
+    double corner_dist = norm(Point2i(0, 0) - center);
+    Size2i gridSize((int)(360 / dtheta), (int)((corner_dist - center_radius) / dr));
+    grid = Mat(gridSize, CV_8UC1);
+    realCoords = Mat_<Point2i>(gridSize);
+
+    Mat area_around;
+
+    Point2i player_vector = player_point - center;
+    double player_theta;
+    if (player_vector.x == 0) {
+        player_theta = (player_vector.y > 0) ? M_PI / 2 : -M_PI / 2;
+    }
+    else {
+        player_theta = atan(player_vector.y / player_vector.x);
+        if (player_vector.y < 0) {
+            player_theta += M_PI;
+        }
+    }
+
+    player_theta *= 180.0 / M_PI;
+    for (int y = 0; y < gridSize.height; ++y) {
+        for (int x = 0; x < gridSize.width; ++x) {
+            double r = (dr * y) + center_radius;
+            double theta = (dtheta * x) - player_theta;
+            
+            Point2i real((int)(center.x + (r * cos(theta * M_PI / 180))),(int)(center.y - (r * sin(theta * M_PI / 180))));
+
+            realCoords.at<Point2i>(y, x) = real;
+            assert(realCoords.at<Point2i>(y, x) == real);
+
+            if (real.x < 0 || real.x >= frame.size[1]) {
+                grid.at<char>(y, x) = (char) GridVals::GRID_OOB;
+                continue;
+            }
+            if (real.y < 0 || real.y > frame.size[0]) {
+                grid.at<char>(y, x) = (char)GridVals::GRID_OOB;
+                continue;
+            }
+
+            area_around = thresh(Range(max(0, real.y - too_close), min(thresh.size[0] - 1, real.y + too_close)), Range(max(0, real.x - too_close), min(thresh.size[1] - 1, real.x + too_close)));
+            if (countNonZero(area_around) > 0) {
+                grid.at<char>(y, x) = (char)GridVals::GRID_BLOCKED;
+                continue;
+            }
+
+            grid.at<char>(y, x) = (char)GridVals::GRID_OPEN;
+        }
+    }
+}
+
+void ParsedFrame::find_path() {
+    //assert(false);
 }
