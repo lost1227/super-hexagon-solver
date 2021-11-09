@@ -188,7 +188,7 @@ class GameFrame():
                     continue
 
                 area_around = self._thresh[max(0, realy-too_close):min(self._dims[0], realy+too_close),max(0, realx-too_close):min(self._dims[1], realx+too_close)]
-                if area_around.max() > 0:
+                if area_around.any():
                     self._grid[y][x] = GameFrame._GRID_BLOCKED
                     continue
                 self._grid[y][x] = GameFrame._GRID_OPEN
@@ -223,7 +223,7 @@ class GameFrame():
                     continue
                 if self._grid[newpoint[1],newpoint[0]] == GameFrame._GRID_BLOCKED:
                     continue
-                stepCost = 1 + 1 * curr.point[1]
+                stepCost = 1 + 1.2 * curr.point[1]
                 newnode = AStar_Node(newpoint, curr, curr.pathlen + 1, curr.pathlen + stepCost + self._estimate_cost(newpoint))
                 heapq.heappush(openset, newnode)
                 
