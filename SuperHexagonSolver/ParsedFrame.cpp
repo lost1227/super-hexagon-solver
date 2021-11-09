@@ -7,6 +7,8 @@
 #include <algorithm>
 #include <limits>
 #include <format>
+#include <queue>
+#include <set>
 
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
@@ -65,7 +67,9 @@ ParsedFrame::ParsedFrame(const Mat& frame, int dr, int dtheta, int too_close)
         gridPrecisionLevel = i;
         setup_search_grid(params.dr, params.dtheta, params.too_close);
         find_path();
-        return;
+        if (!path.empty()) {
+            break;
+        }
     }
 }
 
@@ -175,6 +179,18 @@ Mat ParsedFrame::showPlottedPath() const {
         }
     }
 
+    if (!path.empty()) {
+        for (int i = 1; i < path.size(); ++i) {
+            const Point2i& prev = path[i - 1];
+            const Point2i& curr = path[i];
+
+            const Point2i& realPrev = realCoords.at<Point2i>(prev);
+            const Point2i& realCurr = realCoords.at<Point2i>(curr);
+
+            arrowedLine(bgrthresh, realPrev, realCurr, Scalar(0, 255, 0), 3);
+        }
+    }
+
     if (!player_contour.empty()) {
         drawContours(bgrthresh, vector<vector<Point>>{ player_contour }, 0, Scalar(0, 255, 255), FILLED);
     }
@@ -236,6 +252,58 @@ void ParsedFrame::setup_search_grid(int dr, int dtheta, int too_close) {
     }
 }
 
+Point2i dirs[] = { {0, 1}, {1, 0}, {-1, 0}, {0, -1} };
+
+double ParsedFrame::estimate_cost(Point2i from) {
+    return grid.size[0] - from.y;
+}
+
 void ParsedFrame::find_path() {
-    //assert(false);
+    priority_queue<AStar_Node> openset;
+    auto set_comparator = [](const Point2i& p1, const Point2i& p2) -> bool {
+        if (p1.y == p2.y) {
+            return p1.x < p2.x;
+        }
+        else {
+            return p1.y < p2.y;
+        }
+    };
+    set<Point2i, decltype(set_comparator)> visited;
+
+    path.clear();
+
+    openset.push(AStar_Node(Point2i(0, 0), nullptr, 0, estimate_cost(Point2i(0, 0))));
+
+    while (!openset.empty()) {
+        shared_ptr<AStar_Node> curr = make_shared<AStar_Node>(move(openset.top()));
+        openset.pop();
+        visited.insert(curr->point);
+        assert(grid.at<char>(curr->point) == grid.at<char>(curr->point.y, curr->point.x));
+        if (curr->point.y == (grid.size[0] - 1) || grid.at<char>(curr->point) == (char)GridVals::GRID_OOB) {
+            while (true) {
+                path.push_back(curr->point);
+                if (curr->prev == nullptr) {
+                    break;
+                }
+                curr = curr->prev;
+            }
+            reverse(path.begin(), path.end());
+            break;
+        }
+        for (Point2i& dir : dirs) {
+            Point2i newpoint = curr->point + dir;
+            newpoint.x = (newpoint.x + grid.size[1]) % grid.size[1];
+            if (newpoint.y < 0) {
+                continue;
+            }
+            if (visited.contains(newpoint)) {
+                continue;
+            }
+            if (grid.at<char>(newpoint) == (char)GridVals::GRID_BLOCKED) {
+                continue;
+            }
+            double stepcost = 1 + 1.2 * newpoint.y;
+            openset.push(AStar_Node(newpoint, curr, curr->pathlen + 1, curr->pathlen + stepcost + estimate_cost(newpoint)));
+        }
+    }
 }

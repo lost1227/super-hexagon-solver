@@ -13,17 +13,21 @@ public:
     cv::Mat showPlottedPath() const;
 private:
     struct AStar_Node {
-        int point[2];
+        cv::Point2i point;
         std::shared_ptr<AStar_Node> prev;
         int pathlen;
         int totalcost;
 
-        AStar_Node(int point[2], std::shared_ptr<AStar_Node> prev, int pathlen, int totalcost)
-            : point {point[0], point[1]}
+        AStar_Node(cv::Point2i point, std::shared_ptr<AStar_Node> prev, int pathlen, int totalcost)
+            : point(point)
             , prev(prev)
             , pathlen(pathlen)
             , totalcost(totalcost)
         {}
+
+        const bool operator<(const AStar_Node& oth) const {
+            return totalcost < oth.totalcost;
+        }
     };
 
     struct GridParams {
@@ -65,11 +69,14 @@ private:
     cv::Mat grid;
     cv::Mat_<cv::Point2i> realCoords;
 
+    std::vector<cv::Point2i> path;
+
     void cover_ui();
     void threshold();
     void find_player();
     void cover_center();
     void setup_search_grid(int dr, int dtheta, int too_close);
     void find_path();
+    double estimate_cost(cv::Point2i from);
 };
 
