@@ -191,6 +191,22 @@ class GameFrame():
                 if area_around.any():
                     self._grid[y][x] = GameFrame._GRID_BLOCKED
                     continue
+
+                if (dr * y < 80):
+                    fail = False
+                    for i in range(40):
+                        testx = int(realx + i * math.cos(math.radians(theta)))
+                        testy = int(realy - i * math.sin(math.radians(theta)))
+                        if testx < 0 or testx >= self._dims[1]:
+                            break
+                        if testy < 0 or testy >= self._dims[0]:
+                            break
+                        if self._thresh[testy, testx] > 0:
+                            fail = True
+                            break
+                    if fail:
+                        continue
+
                 self._grid[y][x] = GameFrame._GRID_OPEN
 
     def _estimate_cost(self, point):
