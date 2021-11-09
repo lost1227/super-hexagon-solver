@@ -51,25 +51,18 @@ with mss() as sct:
             fps = 1 / (time.time() - last_time)
             last_time = time.time()
             img = cv.cvtColor(img, cv.COLOR_BGRA2BGR)
-            imgbw = cv.cvtColor(img, cv.COLOR_BGRA2GRAY)
 
-            frame = game.GameFrame(imgbw, 20, 10, 20)
+            frame = game.GameFrame(img)
             if frame.is_valid():
-                frame.findPath()
                 move = frame.getNextMove()
-                if move is None:
-                    frame = game.GameFrame(imgbw, 10, 5, 1)
-                    frame.findPath()
-                    move = frame.getNextMove()
 
                 if show or record:
                     plotted = frame.showPlottedPath()
 
                 nextKey = None
-                nextMove = frame.getNextMove()
-                if nextMove == "LEFT":
+                if move == "LEFT":
                     nextKey = "left"
-                elif nextMove == "RIGHT":
+                elif move == "RIGHT":
                     nextKey = "right"
                 
                 if keypress and lastKey is not None:

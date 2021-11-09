@@ -8,12 +8,12 @@ import time
 
 scriptdir = Path(__file__).resolve().parent
 
-inpath = scriptdir / 'in'
+inpath = scriptdir / '../in'
 if not inpath.is_dir():
     print("Input dir not found")
     exit(1)
 
-outpath = scriptdir / 'out'
+outpath = scriptdir / '../out'
 if outpath.is_dir():
     shutil.rmtree(outpath)
 elif outpath.is_file():
@@ -28,13 +28,9 @@ for i, inf in enumerate(inpath.glob("*.png")):
     if img is None:
         print("Could not read image {}".format(inf))
         continue
-
-    gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
     
-    frame = game.GameFrame(gray, 20, 10, 15)
+    frame = game.GameFrame(img)
     if frame.is_valid():
-        frame.findPath()
-
         plotted = frame.showPlottedPath()
     else:
         plotted = cv.cvtColor(frame._thresh, cv.COLOR_GRAY2BGR)
