@@ -5,8 +5,10 @@ import heapq
 import time
 
 _threshmap = [
-    58, # [0, 10)
-    80, # [10, 20)
+    58, # [0, 7)
+    70, # [7, 10)
+    80, # [10, 15)
+    85, # [15, 20)
     90, # [20, 30)
     80, # [30, 40)
     80, # [40, 50)
@@ -15,15 +17,17 @@ _threshmap = [
     80, # [70, 80)
     80, # [80, 90)
     80, # [90, 100)
-    80, # [100, 110)
+    70, # [100, 110)
     69, # [110, 120)
     63, # [120, 130)
     68, # [130, 140)
     80, # [140, 150)
     80, # [150, 160)
     80, # [160, 170)
-    58, # [170, 180)
+    62, # [170, 180]
 ]
+
+_bins = [0, 7, 10, 15, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180]
 
 _debug_contours = False
 
@@ -95,12 +99,13 @@ class GameFrame():
     def _threshold(self):
         searchArea = self._colorframe[150:445,330:630]
         hsv = cv.cvtColor(searchArea, cv.COLOR_BGR2HSV)
-        huehist, _ = np.histogram(hsv[:,:,0], bins=range(0, 181, 10))
+        huehist, _ = np.histogram(hsv[:,:,0], bins=_bins)
         hueidx = huehist.argmax()
         threshval = _threshmap[hueidx]
         self._debugThreshInfo = (hueidx, threshval)
         #_, self._thresh = cv.threshold(self._frame, 100, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
-        _, self._thresh = cv.threshold(self._frame, threshval, 255, cv.THRESH_BINARY)
+        blurframe = cv.blur(self._frame, (3, 3))
+        _, self._thresh = cv.threshold(blurframe, threshval, 255, cv.THRESH_BINARY)
 
     def _find_player_contour(self):
         playerThresh = self._thresh[150:445,330:630]
