@@ -53,7 +53,8 @@ class GameFrame():
         _, self._thresh = cv.threshold(self._frame, 100, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
 
     def _find_player_contour(self):
-        playerThresh = self._thresh[150:445,330:630]
+        playerThreshOrigin = (int(self._center[1]-147.5), int(self._center[0]-150))
+        playerThresh = self._thresh[playerThreshOrigin[0]:playerThreshOrigin[0]+295,playerThreshOrigin[1]:playerThreshOrigin[1]+300]
         contours, _ = cv.findContours(playerThresh, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
         
         self._player_contour = None
@@ -70,7 +71,7 @@ class GameFrame():
             if area < 45 or area > 160:
                 continue
 
-            self._player_contour = approx + (330, 150)
+            self._player_contour = approx + (playerThreshOrigin[1], playerThreshOrigin[0])
         if self._player_contour is not None:
             boundRect = cv.boundingRect(self._player_contour)
             cv.rectangle(self._thresh, boundRect, 0, -1)

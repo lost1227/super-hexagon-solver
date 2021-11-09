@@ -1,12 +1,12 @@
-import win32gui
 from mss import mss
 import numpy as np
 import cv2 as cv
 import time
-import keys
 
 import game
 import shutil
+
+from windowinfo import find_window_coords
 
 from pathlib import Path
 
@@ -19,30 +19,17 @@ elif errordir.is_file():
 
 errordir.mkdir()
 
-def find_window_coords():
-    coords = None
-    def callback(hwnd, extra):
-        nonlocal coords
-        text = win32gui.GetWindowText(hwnd)
-        if text != "Super Hexagon":
-            return
-        rect = win32gui.GetWindowRect(hwnd)
-        x = rect[0] + 10
-        y = rect[1] + 40
-        w = rect[2] - 10 - x
-        h = rect[3] - 50 - y
-        coords = {"top":y, "left":x, "width":w, "height":h}
-    win32gui.EnumWindows(callback, None)
-
-    return coords
-
 last_time = 0
 
 lastKey = None
 
-record = False
+record = True
+show = False
+keypress = True
 
-show = True
+if keypress:
+    import pyautogui
+    pyautogui.PAUSE = 0
 
 i = 0
 
@@ -81,23 +68,23 @@ with mss() as sct:
                 nextKey = None
                 nextMove = frame.getNextMove()
                 if nextMove == "LEFT":
-                    nextKey = keys.VK_LEFT
+                    nextKey = "left"
                 elif nextMove == "RIGHT":
-                    nextKey = keys.VK_RIGHT
+                    nextKey = "right"
                 
-                if lastKey is not None:
-                    keys.ReleaseKey(lastKey)
+                if keypress and lastKey is not None:
+                    pyautogui.keyUp(lastKey)
                 lastKey = nextKey
-                if nextKey is not None:
-                    keys.PressKey(lastKey)
+                if keypress and nextKey is not None:
+                    pyautogui.keyDown(lastKey)
             else:
                 if show or record:
                     cv.imwrite(str(errordir / '{}.png'.format(i)), img)
                     i += 1
                     plotted = cv.cvtColor(frame._thresh, cv.COLOR_GRAY2BGR)
                     cv.rectangle(plotted, (5, 5), (plotted.shape[1]-5, plotted.shape[0]-5), (0, 0, 255), 10)
-                if lastKey is not None:
-                    keys.ReleaseKey(lastKey)
+                if keypress and lastKey is not None:
+                    pyautogui.keyUp(lastKey)
                 lastKey = None
                 
 
@@ -113,12 +100,12 @@ with mss() as sct:
             if record:
                 out.write(vis)
             
-            if show and cv.waitKey(1) & 0xFF == ord("q"):
+            if show and cv.pollKey() & 0xFF == ord("q"):
                 cv.destroyAllWindows()
                 break
 
-        if lastKey is not None:
-            keys.ReleaseKey(lastKey)
+        if keypress and lastKey is not None:
+            pyautogui.keyUp(lastKey)
     except KeyboardInterrupt:
         pass
 
