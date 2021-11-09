@@ -113,6 +113,8 @@ class GameFrame():
         
         self._player_contour = None
         
+        player_candidates = []
+
         for contour in contours:
             approx = cv.approxPolyDP(contour, 0.005 * cv.arcLength(contour, True), True)
 
@@ -130,15 +132,20 @@ class GameFrame():
                 continue
             if contour[:,:,1].min() < 25 or contour[:,:,1].max() > (playerThresh.shape[0] - 25):
                 continue
-            if area < 25 or area > 160:
+            if area < 2 or area > 160:
                 continue
 
+            player_candidates.append((approx + (330, 150), area))
+
             self._player_contour = approx + (330, 150)
+        if len(player_candidates) > 0:
+            self._player_contour = max(player_candidates, key=lambda pair: pair[1])[0]
         if self._player_contour is not None:
             boundRect = cv.boundingRect(self._player_contour)
             cv.rectangle(self._thresh, boundRect, 0, -1)
     
     def _cover_center(self):
+        assert len(self._player_contour) > 0
         squeezedPlayer = np.squeeze(self._player_contour)
         self._closest = min(squeezedPlayer, key=lambda point: (point[0] - self._center[0])**2 + (point[1] - self._center[1])**2)
         
