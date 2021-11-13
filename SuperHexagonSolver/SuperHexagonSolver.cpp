@@ -17,6 +17,8 @@
 using namespace cv;
 using namespace std;
 
+#define SAVE_VIDEO
+
 int main(int argc, char* argv[])
 {
     Mat capture;
@@ -30,6 +32,10 @@ int main(int argc, char* argv[])
     string fps;
 
     optional<Keys> lastKey;
+
+#ifdef SAVE_VIDEO
+    VideoWriter writer;
+#endif
 
     while (true) {
         timer = chrono::high_resolution_clock::now();
@@ -67,6 +73,13 @@ int main(int argc, char* argv[])
         fps = std::format("{:.2f} FPS", 1000.0 / timediff.count());
 
         putText(vis, fps, Point(10, vis.size[0] - 60), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(255, 0, 255), 1);
+
+#ifdef SAVE_VIDEO
+        if (!writer.isOpened()) {
+            writer.open("out.mp4", VideoWriter::fourcc('m', 'p', '4', 'v'), 10, Size(vis.size[1], vis.size[0]));
+        }
+        writer.write(vis);
+#endif
         
         imshow("Hexagonical", vis);
         if (waitKey(1) == 'q') {
