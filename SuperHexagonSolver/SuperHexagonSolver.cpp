@@ -7,48 +7,75 @@
 #include <opencv2/imgproc.hpp>
 #include <iostream>
 #include <filesystem>
+#include <chrono>
+#include <format>
+#include <optional>
 
 #include "ParsedFrame.h"
+#include "PlatformFunctions.h"
 
 using namespace cv;
 using namespace std;
 
 int main(int argc, char* argv[])
 {
-    filesystem::path indir("C:\\Users\\jordan\\Documents\\git\\super-hexagon-solver\\in");
-    filesystem::path outdir("C:\\Users\\jordan\\Documents\\git\\super-hexagon-solver\\out");
-
-    filesystem::path outfile;
-
+    Mat capture;
     Mat image;
     Mat plotted;
     Mat vis;
 
-    filesystem::remove_all(outdir);
-    filesystem::create_directory(outdir);
+    chrono::high_resolution_clock::time_point timer;
+    chrono::milliseconds timediff;
 
-    filesystem::directory_iterator initer(indir);
-    for (auto& dirent : initer) {
-        if (!dirent.is_regular_file() || dirent.path().extension() != ".png") {
-            continue;
+    string fps;
+
+    optional<Keys> lastKey;
+
+    while (true) {
+        timer = chrono::high_resolution_clock::now();
+
+        capture = GetWindowCapture();
+        if (capture.data == NULL) {
+            break;
         }
-        const filesystem::path &infile = dirent.path();
-
-        outfile = outdir / infile.filename();
-
-        image = imread(infile.string());
-        if (image.data == NULL)
-        {
-            cout << "Could not open or find the image " << infile.string() << endl;
-            continue;
-        }
+        cvtColor(capture, image, COLOR_BGRA2BGR);
         ParsedFrame frame(image);
+
+        if (lastKey.has_value()) {
+            releaseKey(*lastKey);
+            lastKey.reset();
+        }
+
+        if (frame.didFindPath()) {
+            switch (frame.getNextDir()) {
+            case ParsedFrame::Direction::DIR_LEFT:
+                lastKey = Keys::KEY_LEFT;
+                break;
+            case ParsedFrame::Direction::DIR_RIGHT:
+                lastKey = Keys::KEY_RIGHT;
+            }
+            if (lastKey.has_value()) {
+                pressKey(*lastKey);
+            }
+        }
 
         plotted = frame.showPlottedPath();
 
         vconcat(image, plotted, vis);
 
-        imwrite(outfile.string(), vis);
+        timediff = chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now() - timer);
+        fps = std::format("{:.2f} FPS", 1000.0 / timediff.count());
+
+        putText(vis, fps, Point(10, vis.size[0] - 60), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(255, 0, 255), 1);
+        
+        imshow("Hexagonical", vis);
+        if (waitKey(1) == 'q') {
+            break;
+        }
+    }
+    if (lastKey.has_value()) {
+        releaseKey(*lastKey);
+        lastKey.reset();
     }
     return 0;
 }
