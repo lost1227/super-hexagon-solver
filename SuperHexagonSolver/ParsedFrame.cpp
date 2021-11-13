@@ -259,7 +259,7 @@ void ParsedFrame::setup_search_grid(int dr, int dtheta, int too_close) {
                 grid.at<char>(y, x) = (char) GridVals::GRID_OOB;
                 continue;
             }
-            if (real.y < 0 || real.y > frame.size[0]) {
+            if (real.y < 0 || real.y >= frame.size[0]) {
                 grid.at<char>(y, x) = (char)GridVals::GRID_OOB;
                 continue;
             }
@@ -279,7 +279,12 @@ Point2i dirs[] = { {0, 1}, {1, 0}, {-1, 0}, {0, -1} };
 Point2i lastDst;
 
 double ParsedFrame::estimate_cost(Point2i from) {
-    return (grid.size[0] - from.y) + 0.25 * norm(lastDst - from);
+    const Point2i& realPoint = realCoords.at<Point2i>(from);
+    int distToOuterEdge = grid.size[0] - from.y;
+    double distToLastDst = norm(realCoords.at<Point2i>(lastDst) - realPoint);
+    double distToLeft = realPoint.x;
+    double distToTop = realPoint.y;
+    return  distToOuterEdge + 0.0005 * distToLeft + 0.0005 * distToTop;
 }
 
 
