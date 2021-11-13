@@ -27,12 +27,21 @@
     <ClCompile Include="PressKeys.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="PlayRealtime.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ParseFiles.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ParsedFrame.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="PlatformFunctions.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="RunModes.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
