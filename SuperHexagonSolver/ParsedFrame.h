@@ -11,6 +11,16 @@ public:
     const cv::Mat& getThresh() const { return thresh; }
 
     cv::Mat showPlottedPath() const;
+
+    bool didFindPath() const;
+
+    enum class Direction {
+        DIR_LEFT,
+        DIR_RIGHT,
+        DIR_OUT
+    };
+
+    Direction getNextDir() const;
 private:
     struct AStar_Node {
         cv::Point2i point;
@@ -26,7 +36,7 @@ private:
         {}
 
         const bool operator<(const AStar_Node& oth) const {
-            return totalcost < oth.totalcost;
+            return totalcost > oth.totalcost;
         }
     };
 

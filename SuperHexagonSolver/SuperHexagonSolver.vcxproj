@@ -144,10 +144,13 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="ParsedFrame.cpp" />
+    <ClCompile Include="PressKeys.cpp" />
+    <ClCompile Include="ScreenCapture.cpp" />
     <ClCompile Include="SuperHexagonSolver.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ParsedFrame.h" />
+    <ClInclude Include="PlatformFunctions.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -16,11 +16,16 @@
 
 #include <opencv2/highgui.hpp>
 
+#include <iostream>
 
 using namespace std;
 using namespace cv;
 
-const ParsedFrame::GridParams ParsedFrame::params[] = { GridParams(25, 10, 15), GridParams(10, 8, 5) };
+const ParsedFrame::GridParams ParsedFrame::params[] = { 
+    GridParams(30, 15, 15), 
+    GridParams(10, 8, 5),
+    GridParams(5, 5, 1)
+};
 
 const int threshmap[] = {
     58, // [0, 7)
@@ -173,8 +178,13 @@ Mat ParsedFrame::showPlottedPath() const {
                 }
 
                 Point2i real = realCoords.at<Point2i>(y, x);
-
-                circle(bgrthresh, real, 2, Scalar(255, 0, 255), FILLED);
+                
+                if (x == 0 && y == 0) {
+                    circle(bgrthresh, real, 4, Scalar(0, 0, 255), FILLED);
+                }
+                else {
+                    circle(bgrthresh, real, 2, Scalar(255, 0, 255), FILLED);
+                }
             }
         }
     }
@@ -189,6 +199,22 @@ Mat ParsedFrame::showPlottedPath() const {
 
             arrowedLine(bgrthresh, realPrev, realCurr, Scalar(0, 255, 0), 3);
         }
+
+        string dir;
+        switch (getNextDir()) {
+        case Direction::DIR_OUT:
+            dir = "OUT";
+            break;
+        case Direction::DIR_LEFT:
+            dir = "LEFT";
+            break;
+        case Direction::DIR_RIGHT:
+            dir = "RIGHT";
+            break;
+        default:
+            assert(false);
+        }
+        putText(bgrthresh, dir, Point2i(bgrthresh.size[1] - 345, 61), FONT_HERSHEY_SIMPLEX, 1, Scalar(0, 0, 0), 2);
     }
 
     if (!player_contour.empty()) {
@@ -215,13 +241,10 @@ void ParsedFrame::setup_search_grid(int dr, int dtheta, int too_close) {
         player_theta = (player_vector.y > 0) ? M_PI / 2 : -M_PI / 2;
     }
     else {
-        player_theta = atan(player_vector.y / player_vector.x);
-        if (player_vector.y < 0) {
-            player_theta += M_PI;
-        }
+        player_theta = atan2(player_vector.y, player_vector.x);
     }
-
     player_theta *= 180.0 / M_PI;
+
     for (int y = 0; y < gridSize.height; ++y) {
         for (int x = 0; x < gridSize.width; ++x) {
             double r = (dr * y) + center_radius;
@@ -253,10 +276,12 @@ void ParsedFrame::setup_search_grid(int dr, int dtheta, int too_close) {
 }
 
 Point2i dirs[] = { {0, 1}, {1, 0}, {-1, 0}, {0, -1} };
+Point2i lastDst;
 
 double ParsedFrame::estimate_cost(Point2i from) {
-    return grid.size[0] - from.y;
+    return (grid.size[0] - from.y) + 0.25 * norm(lastDst - from);
 }
+
 
 void ParsedFrame::find_path() {
     priority_queue<AStar_Node> openset;
@@ -275,7 +300,7 @@ void ParsedFrame::find_path() {
     openset.push(AStar_Node(Point2i(0, 0), nullptr, 0, estimate_cost(Point2i(0, 0))));
 
     while (!openset.empty()) {
-        shared_ptr<AStar_Node> curr = make_shared<AStar_Node>(move(openset.top()));
+        shared_ptr<AStar_Node> curr = make_shared<AStar_Node>(openset.top());
         openset.pop();
         visited.insert(curr->point);
         assert(grid.at<char>(curr->point) == grid.at<char>(curr->point.y, curr->point.x));
@@ -302,8 +327,37 @@ void ParsedFrame::find_path() {
             if (grid.at<char>(newpoint) == (char)GridVals::GRID_BLOCKED) {
                 continue;
             }
-            double stepcost = 1 + 1.2 * newpoint.y;
+            double stepcost = 1 + 1.2 * curr->point.y;
             openset.push(AStar_Node(newpoint, curr, curr->pathlen + 1, curr->pathlen + stepcost + estimate_cost(newpoint)));
         }
+    }
+    if(!path.empty())
+        lastDst = path.back();
+
+}
+
+bool ParsedFrame::didFindPath() const {
+    return !path.empty();
+}
+
+ParsedFrame::Direction ParsedFrame::getNextDir() const {
+    assert(didFindPath());
+    assert(path.size() >= 2);
+    Point2i diff = path[1] - path[0];
+    
+    // Account for wrap-around
+    if (diff.x > 1) {
+        diff.x = -1;
+    }
+
+    if (diff.x == 0) {
+        assert(diff.y > 0);
+        return Direction::DIR_OUT;
+    }
+    else if (diff.x < 0) {
+        return Direction::DIR_RIGHT;
+    }
+    else {
+        return Direction::DIR_LEFT;
     }
 }
