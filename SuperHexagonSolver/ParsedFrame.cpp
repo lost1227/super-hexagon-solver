@@ -22,9 +22,9 @@ using namespace std;
 using namespace cv;
 
 const ParsedFrame::GridParams ParsedFrame::params[] = { 
-    GridParams(30, 15, 15), 
-    GridParams(10, 8, 5),
-    GridParams(5, 5, 1)
+    GridParams(30, 15, 15, 40), 
+    GridParams(10, 8, 5, 5),
+    //GridParams(5, 5, 5, 0)
 };
 
 const int threshmap[] = {
@@ -52,11 +52,8 @@ const int threshmap[] = {
 
 const float bins[] = { 0, 7, 10, 15, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180 };
 
-ParsedFrame::ParsedFrame(const Mat& frame, int dr, int dtheta, int too_close)
+ParsedFrame::ParsedFrame(const Mat& frame)
     : colorFrame(frame)
-    , dr(dr)
-    , dtheta(dtheta)
-    , too_close(too_close)
     , center(frame.size[1] / 2, frame.size[0] / 2)
 {
     assert(frame.channels() == 3);
@@ -70,7 +67,7 @@ ParsedFrame::ParsedFrame(const Mat& frame, int dr, int dtheta, int too_close)
     for (int i = 0; i < (sizeof(params) / sizeof(ParsedFrame::GridParams)); i++) {
         const ParsedFrame::GridParams& params = ParsedFrame::params[i];
         gridPrecisionLevel = i;
-        setup_search_grid(params.dr, params.dtheta, params.too_close);
+        setup_search_grid(params);
         find_path();
         if (!path.empty()) {
             break;
@@ -79,10 +76,16 @@ ParsedFrame::ParsedFrame(const Mat& frame, int dr, int dtheta, int too_close)
 }
 
 void ParsedFrame::cover_ui() {
-    double max = 0;
-    minMaxLoc(frame.rowRange(70, frame.size[0]), nullptr, &max);
-    rectangle(frame, Point2i(0, 0), Point2i(264, 40), max, FILLED);
-    rectangle(frame, Point2i(frame.size[1] - 350, 0), Point2i(frame.size[1] - 1, 66), max, FILLED);
+    vector<Point2i> leftUiPoly = { Point2i(0, 0), Point2i(264, 0), Point2i(235, 40), Point2i(0, 40) };
+    vector<Point2i> rightUiPoly = { Point2i(623, 0), Point2i(652, 40), Point2i(776, 40), Point2i(790, 65), Point2i(960, 65), Point2i(960, 0) };
+
+    fillConvexPoly(frame, leftUiPoly, 255);
+
+    imshow("test", frame);
+    waitKey(0);
+    fillPoly(frame, vector({ rightUiPoly }), 255);
+    imshow("test", frame);
+    waitKey(0);
 }
 
 void ParsedFrame::threshold() {
@@ -214,12 +217,16 @@ Mat ParsedFrame::showPlottedPath() const {
         default:
             assert(false);
         }
-        putText(bgrthresh, dir, Point2i(bgrthresh.size[1] - 345, 61), FONT_HERSHEY_SIMPLEX, 1, Scalar(0, 0, 0), 2);
+        putText(bgrthresh, dir, Point2i(bgrthresh.size[1] - 300, 35), FONT_HERSHEY_SIMPLEX, 1, Scalar(255, 0, 255), 2);
     }
 
     if (!player_contour.empty()) {
         drawContours(bgrthresh, vector<vector<Point>>{ player_contour }, 0, Scalar(0, 255, 255), FILLED);
     }
+
+    assert(gridPrecisionLevel > 0);
+    string searchInfo = std::format("Grid {}", gridPrecisionLevel);
+    putText(bgrthresh, searchInfo, Point(10, bgrthresh.size[0] - 40), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(255, 0, 255), 1);
 
     string threshInfo = std::format("Threshold {} {}", debugThreshInfo[0], debugThreshInfo[1]);
     putText(bgrthresh, threshInfo, Point(10, bgrthresh.size[0] - 20), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(255, 0, 255), 1);
@@ -227,9 +234,9 @@ Mat ParsedFrame::showPlottedPath() const {
     return bgrthresh;
 }
 
-void ParsedFrame::setup_search_grid(int dr, int dtheta, int too_close) {
+void ParsedFrame::setup_search_grid(const GridParams &params) {
     double corner_dist = norm(Point2i(0, 0) - center);
-    Size2i gridSize((int)(360 / dtheta), (int)((corner_dist - center_radius) / dr));
+    Size2i gridSize((int)(360 / params.dtheta), (int)((corner_dist - center_radius) / params.dr));
     grid = Mat(gridSize, CV_8UC1);
     realCoords = Mat_<Point2i>(gridSize);
 
@@ -247,8 +254,8 @@ void ParsedFrame::setup_search_grid(int dr, int dtheta, int too_close) {
 
     for (int y = 0; y < gridSize.height; ++y) {
         for (int x = 0; x < gridSize.width; ++x) {
-            double r = (dr * y) + center_radius;
-            double theta = (dtheta * x) - player_theta;
+            double r = (params.dr * y) + center_radius;
+            double theta = (params.dtheta * x) - player_theta;
             
             Point2i real((int)(center.x + (r * cos(theta * M_PI / 180))),(int)(center.y - (r * sin(theta * M_PI / 180))));
 
@@ -264,10 +271,30 @@ void ParsedFrame::setup_search_grid(int dr, int dtheta, int too_close) {
                 continue;
             }
 
-            area_around = thresh(Range(max(0, real.y - too_close), min(thresh.size[0] - 1, real.y + too_close)), Range(max(0, real.x - too_close), min(thresh.size[1] - 1, real.x + too_close)));
+            area_around = thresh(Range(max(0, real.y - params.too_close), min(thresh.size[0] - 1, real.y + params.too_close)), Range(max(0, real.x - params.too_close), min(thresh.size[1] - 1, real.x + params.too_close)));
             if (countNonZero(area_around) > 0) {
                 grid.at<char>(y, x) = (char)GridVals::GRID_BLOCKED;
                 continue;
+            }
+
+            if (params.dr * y < 80) {
+                bool fail = false;
+                for (int i = 0; i < params.block_shadow; i++) {
+                    Point2i test(real.x + (i * cos(theta * M_PI / 180)), real.y - (i * sin(theta * M_PI / 180)));
+                    if (test.x < 0 || test.x >= frame.size[1])
+                        break;
+                    if (test.y < 0 || test.y >= frame.size[0])
+                        break;
+                    if (thresh.at<char>(test) != 0) {
+                        fail = true;
+                        break;
+                    }
+                }
+
+                if (fail) {
+                    grid.at<char>(y, x) = (char)GridVals::GRID_BLOCKED;
+                    continue;
+                }
             }
 
             grid.at<char>(y, x) = (char)GridVals::GRID_OPEN;
@@ -276,12 +303,12 @@ void ParsedFrame::setup_search_grid(int dr, int dtheta, int too_close) {
 }
 
 Point2i dirs[] = { {0, 1}, {1, 0}, {-1, 0}, {0, -1} };
-Point2i lastDst;
+Point2i lastDst(0, 0);
 
 double ParsedFrame::estimate_cost(Point2i from) {
     const Point2i& realPoint = realCoords.at<Point2i>(from);
     int distToOuterEdge = grid.size[0] - from.y;
-    double distToLastDst = norm(realCoords.at<Point2i>(lastDst) - realPoint);
+    double distToLastDst = norm(lastDst - realPoint);
     double distToLeft = realPoint.x;
     double distToTop = realPoint.y;
     return  distToOuterEdge + 0.0005 * distToLeft + 0.0005 * distToTop;
@@ -337,7 +364,7 @@ void ParsedFrame::find_path() {
         }
     }
     if(!path.empty())
-        lastDst = path.back();
+        lastDst = realCoords.at<Point2i>(path.back());
 
 }
 

@@ -6,7 +6,7 @@
 class ParsedFrame
 {
 public:
-    ParsedFrame(const cv::Mat&, int dr = 20, int dtheta = 10, int too_close = 20);
+    ParsedFrame(const cv::Mat&);
 
     const cv::Mat& getThresh() const { return thresh; }
 
@@ -45,10 +45,13 @@ private:
         int dtheta;
         int too_close;
 
-        GridParams(int dr, int dtheta, int too_close)
+        int block_shadow;
+
+        GridParams(int dr, int dtheta, int too_close, int block_shadow)
             : dr(dr)
             , dtheta(dtheta)
             , too_close(too_close)
+            , block_shadow(block_shadow)
         {}
     };
 
@@ -63,9 +66,6 @@ private:
     cv::Mat frame;
     cv::Mat colorFrame;
     cv::Mat thresh;
-    int dr;
-    int dtheta;
-    int too_close;
 
     int gridPrecisionLevel = -1;
 
@@ -85,7 +85,7 @@ private:
     void threshold();
     void find_player();
     void cover_center();
-    void setup_search_grid(int dr, int dtheta, int too_close);
+    void setup_search_grid(const GridParams& params);
     void find_path();
     double estimate_cost(cv::Point2i from);
 };
