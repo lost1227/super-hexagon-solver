@@ -1,0 +1,8 @@
+name: superhexagon
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - tensorflow-gpu
+  - opencv
+
