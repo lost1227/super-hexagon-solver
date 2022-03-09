@@ -1,12 +1,12 @@
 import cv2 as cv
-from cv2 import getTrackbarPos
 import numpy as np
 from pathlib import Path
 
 import tensorflow as tf
 
 img_dir = Path.cwd() / 'data'
-out_f = Path.cwd() / 'data.record'
+train_out_f = Path.cwd() / 'train.record'
+test_out_f = Path.cwd() / 'test.record'
 
 if not img_dir.is_dir():
     print("Input not found")
@@ -15,8 +15,14 @@ if not img_dir.is_dir():
 thresholds = {}
 files = list(img_dir.glob("*.png"))
 
-if out_f.exists():
-    raw_dataset = tf.data.TFRecordDataset([out_f])
+in_files = []
+for out_f in (train_out_f, test_out_f):
+    if out_f.exists():
+        in_files.append(out_f)
+
+
+if len(in_files) > 0:
+    raw_dataset = tf.data.TFRecordDataset(in_files)
     for record in raw_dataset.as_numpy_iterator():
         example = tf.train.Example()
         example.ParseFromString(record)
@@ -27,6 +33,7 @@ if out_f.exists():
         path = img_dir / name
         thresholds[path] = threshold
 
+print('Loaded thresholds', thresholds)
 
 dimensions = None
 curr_image = None
@@ -119,20 +126,36 @@ def _int64_feature(value):
   """Returns an int64_list from a bool / enum / int / uint."""
   return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
 
-with tf.io.TFRecordWriter(str(out_f)) as writer:
-    for f in files:
-        if f not in thresholds:
-            continue
+items = list(thresholds.items())
+split_point = int(0.8 * len(items))
+train_items = items[:split_point]
+test_items = items[split_point:]
 
-        img = cv.imread(str(inf), cv.IMREAD_COLOR)
-        if img is None:
-            continue
-        success, encoded = cv.imencode(".png", img)
-        if not success:
-            continue
+for out_f, items in ((train_out_f, train_items), (test_out_f, test_items)):
+    with tf.io.TFRecordWriter(str(out_f)) as writer:
+        for f, threshold in items:
+            img = cv.imread(str(f), cv.IMREAD_COLOR)
+            if img is None:
+                print(f"Image failed to load: {str(f)}")
+                continue
+            if img.shape[:2] != (600, 960):
+                img = cv.resize(img, (960, 600))
+            if img is None:
+                print(f"Image failed to resize: {str(f)}")
+                continue
+            hsv = cv.cvtColor(img, cv.COLOR_BGR2HSV)
+            hist_hue, _ = np.histogram(hsv[:, :, 0], range(256))
+            hist_sat, _ = np.histogram(hsv[:, :, 1], range(256))
+            hist_val, _ = np.histogram(hsv[:, :, 2], range(256))
+            success, encoded = cv.imencode(".png", img)
+            if not success:
+                continue
 
-        writer.write(tf.train.Example(features=tf.train.Features(feature={
-            "image/filename": _bytes_feature(f.name.encode('utf-8')),
-            "image/threshold": _int64_feature(thresholds[f]),
-            "image/encoded": _bytes_feature(bytes(encoded))
-        })).SerializeToString())
+            writer.write(tf.train.Example(features=tf.train.Features(feature={
+                "image/filename": _bytes_feature(f.name.encode('utf-8')),
+                "image/threshold": _int64_feature(threshold),
+                "image/encoded": _bytes_feature(bytes(encoded)),
+                "image/histogram/hue": _bytes_feature(hist_hue.astype(np.uint8).tobytes()),
+                "image/histogram/saturation": _bytes_feature(hist_sat.astype(np.uint8).tobytes()),
+                "image/histogram/value": _bytes_feature(hist_val.astype(np.uint8).tobytes())
+            })).SerializeToString())
