@@ -33,7 +33,8 @@ if len(in_files) > 0:
         path = img_dir / name
         thresholds[path] = threshold
 
-print('Loaded thresholds', thresholds)
+print(f'Loaded {len(thresholds)} thresholds')
+files.sort(key=lambda f: 1 if f in thresholds else 0)
 
 dimensions = None
 curr_image = None
@@ -97,7 +98,7 @@ while i < len(files) and not quit:
 
     while cv.getWindowProperty('image', cv.WND_PROP_VISIBLE) >= 1:
         key = cv.waitKey(100) & 0xFF
-        if key == ord('p'):
+        if key == ord('q'):
             quit = True
             break
         elif key == ord('d'):
@@ -107,6 +108,8 @@ while i < len(files) and not quit:
             if i > 0:
                 i -= 1
             break
+        elif key == ord('p'):
+            exit()
 
     thresholds[inf] = cv.getTrackbarPos('Threshold', 'image')
 
@@ -115,6 +118,7 @@ while i < len(files) and not quit:
 
 cv.destroyWindow('image')
 
+print(f"min:{min(thresholds.values())} max:{max(thresholds.values())}")
 
 def _bytes_feature(value):
     """Returns a bytes_list from a string / byte."""

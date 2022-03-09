@@ -11,6 +11,10 @@ from windowinfo import find_window_coords
 base_dir = Path.cwd()
 model_dir = base_dir / 'model'
 
+min_threshold = 40
+max_threshold = 110
+n_classes = (max_threshold - min_threshold) // 5
+
 if not model_dir.exists():
     print("Model not found")
     exit(1)
@@ -24,19 +28,23 @@ last_time = time.time()
 
 def get_mask(img):
     resized_img = cv.resize(img, (960, 600))
-    hsv = cv.cvtColor(resized_img, cv.COLOR_BGR2HSV)
-    tf_image = tf.convert_to_tensor(hsv)
-    tf_image = tf.cast(tf_image, tf.int32)
-    tf_hue = tf_image[:, :, 0]
-    tf_hue_hist = tfp.stats.histogram(tf_hue, edges=range(256))
-    tf_hue_hist = tf_hue_hist / 255
-    tf_input = tf.stack([tf_hue_hist], axis=1)
-    tf_input = tf_input[tf.newaxis, ...]
-    value = model(tf_input)
+    #hsv = cv.cvtColor(resized_img, cv.COLOR_BGR2HSV)
+    #tf_image = tf.convert_to_tensor(hsv)
+    #tf_image = tf.cast(tf_image, tf.int32)
+    #tf_hue = tf_image[:, :, 0]
+    #tf_hue_hist = tfp.stats.histogram(tf_hue, edges=range(256))
+    #tf_hue_hist = tf_hue_hist / 255
+    #tf_input = tf.stack([tf_hue_hist], axis=1)
+    #tf_input = tf_input[tf.newaxis, ...]
 
-    value = value[0].numpy()
-    value = np.clip(value, 0, 1)
-    value = int(value * 255)
+    tf_image = tf.convert_to_tensor(resized_img)
+    tf_image = tf_image[tf.newaxis, ...]
+
+    value = model(tf_image)[0]
+    value = tf.argmax(value)
+    value = ( (value / n_classes) * (max_threshold - min_threshold) ) + min_threshold
+
+    value = value.numpy()
 
     mask = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
     _, mask = cv.threshold(mask, value, 255, cv.THRESH_BINARY)
