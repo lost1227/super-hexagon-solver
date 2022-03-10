@@ -75,5 +75,14 @@ Mat GetWindowCapture() {
         return {};
     return GdiPlusScreenCapture(hexagonWindow);
 }
+#elif __linux__ 
+
+using namespace cv;
+
+Mat GetWindowCapture() {
+    Mat out;
+    out.create(600, 980, CV_8UC4);
+    return out;
+}
 
 #endif

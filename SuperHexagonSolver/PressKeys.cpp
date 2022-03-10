@@ -47,5 +47,11 @@ void releaseKey(Keys key) {
 
     SendInput(1, &inkey, sizeof(inkey));
 }
-
+#elif __linux__
+void pressKey(Keys key) {
+    // TODO
+}
+void releaseKey(Keys key) {
+    // TODO
+}
 #endif
