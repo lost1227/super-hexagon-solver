@@ -69,7 +69,7 @@ private:
 
     int gridPrecisionLevel = -1;
 
-    int debugThreshInfo[2];
+    double meanVal;
 
     cv::Point2i center;
     double center_radius;

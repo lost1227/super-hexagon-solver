@@ -21,36 +21,14 @@
 using namespace std;
 using namespace cv;
 
+static constexpr double MEAN_TARGET = 53;
+static constexpr int THRESHVAL = 150;
+
 const ParsedFrame::GridParams ParsedFrame::params[] = { 
     GridParams(30, 15, 15, 40), 
     GridParams(10, 8, 5, 5),
     //GridParams(5, 5, 5, 0)
 };
-
-const int threshmap[] = {
-    58, // [0, 7)
-    70, // [7, 10)
-    80, // [10, 15)
-    85, // [15, 20)
-    90, // [20, 30)
-    80, // [30, 40)
-    80, // [40, 50)
-    80, // [50, 60)
-    80, // [60, 70)
-    80, // [70, 80)
-    80, // [80, 90)
-    80, // [90, 100)
-    70, // [100, 110)
-    69, // [110, 120)
-    63, // [120, 130)
-    68, // [130, 140)
-    80, // [140, 150)
-    80, // [150, 160)
-    80, // [160, 170)
-    62, // [170, 180]
-};
-
-const float bins[] = { 0, 7, 10, 15, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180 };
 
 ParsedFrame::ParsedFrame(const Mat& frame)
     : colorFrame(frame)
@@ -76,41 +54,61 @@ ParsedFrame::ParsedFrame(const Mat& frame)
 }
 
 void ParsedFrame::cover_ui() {
-    vector<Point2i> leftUiPoly = { Point2i(0, 0), Point2i(264, 0), Point2i(235, 40), Point2i(0, 40) };
-    vector<Point2i> rightUiPoly = { Point2i(623, 0), Point2i(652, 40), Point2i(776, 40), Point2i(790, 65), Point2i(960, 65), Point2i(960, 0) };
+    int left_ui_width = 0;
+    int right_ui_width = 0;
+    int width = frame.size[1];
+
+    while (frame.at<char>(0, left_ui_width) < 30) {
+        if (left_ui_width >= width - 1) {
+            left_ui_width = 0;
+            break;
+        }
+        left_ui_width += 1;
+    }
+    while (frame.at<char>(50, width - right_ui_width - 1) < 30) {
+        if (right_ui_width >= width - 1) {
+            right_ui_width = 0;
+            break;
+        }
+        right_ui_width += 1;
+    }
+
+    vector<Point2i> leftUiPoly = { Point2i(0, 0), Point2i(left_ui_width, 0), Point2i(left_ui_width - 29, 40), Point2i(0, 40) };
+    vector<Point2i> rightUiPoly = {
+        Point2i(width - (right_ui_width + 164), 0), Point2i(width, 0), Point2i(width, 65),
+        Point2i(width - (right_ui_width - 2), 65), Point2i(width - (right_ui_width + 12), 40),
+        Point2i(width - (right_ui_width + 135), 40)
+    };
 
     fillConvexPoly(frame, leftUiPoly, 255);
 
+    /*
     imshow("test", frame);
     waitKey(0);
     fillPoly(frame, vector({ rightUiPoly }), 255);
     imshow("test", frame);
     waitKey(0);
+    */
 }
 
 void ParsedFrame::threshold() {
-    Mat searchArea = colorFrame(Range(150, 445), Range(330, 630));
     Mat blurred;
     Mat hsv;
-    Mat hist;
-    cvtColor(searchArea, hsv, COLOR_BGR2HSV);
+    Mat adjusted;
+    cvtColor(colorFrame, hsv, COLOR_BGR2HSV);
 
     vector<Mat> hsv_planes;
     split(hsv, hsv_planes);
 
-    int histSize = (sizeof(bins) / sizeof(int)) - 1;
-    const float* histRange[] = { bins };
+    meanVal = mean(hsv_planes[2])[0];
+    double bias = MEAN_TARGET - meanVal;
 
-    calcHist(&hsv_planes[0] , 1, 0, Mat(), hist, 1, &histSize, histRange, false, false);
+    convertScaleAbs(hsv_planes[2], adjusted, 1, bias);
+    convertScaleAbs(adjusted, adjusted, 2, 0);
 
-    int maxIdx[2];
-    minMaxIdx(hist, nullptr, nullptr, nullptr, maxIdx);
+    int threshval = THRESHVAL;
 
-    int threshval = threshmap[maxIdx[0]];
-    debugThreshInfo[0] = maxIdx[0];
-    debugThreshInfo[1] = threshval;
-
-    blur(frame, blurred, Size(3, 3));
+    blur(adjusted, blurred, Size(3, 3));
     cv::threshold(blurred, thresh, threshval, 255, THRESH_BINARY);
 }
 
@@ -224,11 +222,11 @@ Mat ParsedFrame::showPlottedPath() const {
         drawContours(bgrthresh, vector<vector<Point>>{ player_contour }, 0, Scalar(0, 255, 255), FILLED);
     }
 
-    assert(gridPrecisionLevel > 0);
+    //assert(gridPrecisionLevel > 0);
     string searchInfo = std::format("Grid {}", gridPrecisionLevel);
     putText(bgrthresh, searchInfo, Point(10, bgrthresh.size[0] - 40), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(255, 0, 255), 1);
 
-    string threshInfo = std::format("Threshold {} {}", debugThreshInfo[0], debugThreshInfo[1]);
+    string threshInfo = std::format("Mean Val {:.4f}", meanVal);
     putText(bgrthresh, threshInfo, Point(10, bgrthresh.size[0] - 20), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(255, 0, 255), 1);
 
     return bgrthresh;
