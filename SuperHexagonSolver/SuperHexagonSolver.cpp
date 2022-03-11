@@ -2,18 +2,11 @@
 //
 
 #include "RunModes.h"
-#include <cstring>
 
 int main(int argc, char* argv[])
 {
-    bool record = false;
-    if (argc >= 2) {
-        if (strcmp(argv[1], "-record") == 0) {
-            record = true;
-        }
-    }
     // return parseFiles();
-    return playRealtime(record);
+    return playRealtime();
 }
 
 // Run program: Ctrl + F5 or Debug > Start Without Debugging menu
