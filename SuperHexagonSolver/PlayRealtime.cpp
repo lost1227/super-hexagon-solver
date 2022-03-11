@@ -43,6 +43,7 @@ int playRealtime() {
 
         capture = platformFunctions->GetWindowCapture();
         if (capture.data == NULL) {
+            cout << "Could not find the Super Hexagon window. Is the game running?" << endl;
             break;
         }
         cvtColor(capture, image, COLOR_BGRA2BGR);

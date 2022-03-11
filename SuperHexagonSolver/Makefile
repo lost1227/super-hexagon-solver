@@ -26,7 +26,8 @@ INCLUDES = -I$(CV_DIR)/build \
 	-I$(CV_DIR)/modules/imgproc/include
 
 LIBDIRS = -L$(CV_DIR)/build/lib
-LIBRARIES = -lopencv_core -lopencv_imgcodecs -lopencv_highgui -lopencv_videoio -lopencv_imgproc
+LIBRARIES = -lopencv_core -lopencv_imgcodecs -lopencv_highgui -lopencv_videoio -lopencv_imgproc \
+	-lX11
 
 LINKFLAGS = -static-libstdc++ -Wl,-rpath $(CV_DIR)/build/lib
 

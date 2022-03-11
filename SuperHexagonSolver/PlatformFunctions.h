@@ -10,6 +10,8 @@ public:
         KEY_RIGHT
     };
 
+    virtual ~PlatformFunctions() {}
+
     virtual cv::Mat GetWindowCapture() = 0;
     virtual void pressKey(Keys key) = 0;
     virtual void releaseKey(Keys key) = 0;

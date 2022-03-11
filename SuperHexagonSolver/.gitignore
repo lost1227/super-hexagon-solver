@@ -363,3 +363,5 @@ FodyWeavers.xsd
 
 .deps/
 *.o
+hexagon_solver
+
