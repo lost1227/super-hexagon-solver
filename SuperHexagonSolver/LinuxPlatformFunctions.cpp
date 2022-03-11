@@ -3,6 +3,7 @@
 #include "LinuxPlatformFunctions.h"
 
 #include <X11/Xutil.h>
+#include <X11/extensions/XTest.h>
 
 using namespace cv;
 
@@ -75,12 +76,27 @@ Mat LinuxPlatformFunctions::GetWindowCapture() {
     return currFrame;
 }
 
+static inline KeySym keysToKeySym(PlatformFunctions::Keys key) {
+    switch(key) {
+        case PlatformFunctions::Keys::KEY_LEFT:
+            return XK_Left;
+        case PlatformFunctions::Keys::KEY_RIGHT:
+            return XK_Right;
+        default:
+            assert(0);
+    }
+}
+
 void LinuxPlatformFunctions::pressKey(Keys key) {
-    // TODO
+    KeyCode keycode = XKeysymToKeycode(display, keysToKeySym(key));
+    XTestFakeKeyEvent(display, keycode, True, 0);
+    XFlush(display);
 }
 
 void LinuxPlatformFunctions::releaseKey(Keys key) {
-    // TODO
+    KeyCode keycode = XKeysymToKeycode(display, keysToKeySym(key));
+    XTestFakeKeyEvent(display, keycode, False, 0);
+    XFlush(display);
 }
 
 #endif
