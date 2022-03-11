@@ -9,6 +9,7 @@
 #include <chrono>
 #include <format>
 #include <optional>
+#include <memory>
 
 #include "ParsedFrame.h"
 #include "PlatformFunctions.h"
@@ -16,27 +17,30 @@
 using namespace cv;
 using namespace std;
 
-#define SAVE_VIDEO
+constexpr int record_fps = 60;
 
-int playRealtime() {
+int playRealtime(bool should_save_video) {
     Mat capture;
     Mat image;
     Mat plotted;
     Mat vis;
 
-    chrono::high_resolution_clock::time_point timer;
+    chrono::high_resolution_clock::time_point now;
+    chrono::high_resolution_clock::time_point last_time;
+    chrono::high_resolution_clock::time_point last_record_frame_time;
     chrono::milliseconds timediff;
-
+    chrono::milliseconds record_frame_time = chrono::milliseconds(1000 / record_fps);
     string fps;
 
     optional<Keys> lastKey;
 
-    #ifdef SAVE_VIDEO
-    VideoWriter writer;
-    #endif
+    unique_ptr<VideoWriter> writer;
 
+    if (should_save_video)
+        writer = make_unique<VideoWriter>();
+
+    last_record_frame_time = last_time = now = chrono::high_resolution_clock::now();
     while (true) {
-        timer = chrono::high_resolution_clock::now();
 
         capture = GetWindowCapture();
         if (capture.data == NULL) {
@@ -65,21 +69,27 @@ int playRealtime() {
 
         plotted = frame.showPlottedPath();
 
-        vconcat(image, plotted, vis);
+        cv::vconcat(image, plotted, vis);
 
-        timediff = chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now() - timer);
+        now = chrono::high_resolution_clock::now();
+        timediff = chrono::duration_cast<chrono::milliseconds>(now - last_time);
+        last_time = now;
         fps = std::format("{:.2f} FPS", 1000.0 / timediff.count());
 
-        putText(vis, fps, Point(10, vis.size[0] - 60), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(255, 0, 255), 1);
+        cv::putText(vis, fps, Point(10, vis.size[0] - 60), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(255, 0, 255), 1);
 
-    #ifdef SAVE_VIDEO
-        if (!writer.isOpened()) {
-            writer.open("out.mp4", VideoWriter::fourcc('m', 'p', '4', 'v'), 10, Size(vis.size[1], vis.size[0]));
+        if(writer){
+            if (!writer->isOpened()) {
+                writer->open("out.mp4", VideoWriter::fourcc('m', 'p', '4', 'v'), record_fps, Size(vis.size[1], vis.size[0]));
+            }
+            timediff = chrono::duration_cast<chrono::milliseconds>(now - last_record_frame_time);
+            if (timediff >= record_frame_time) {
+                last_record_frame_time = now;
+                writer->write(vis);
+            }
         }
-        writer.write(vis);
-    #endif
 
-        imshow("Hexagonical", vis);
+        cv::imshow("Hexagonical", vis);
         if (waitKey(1) == 'q') {
             break;
         }

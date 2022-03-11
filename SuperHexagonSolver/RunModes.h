@@ -1,5 +1,5 @@
 #pragma once
 
-int playRealtime();
+int playRealtime(bool save_video = false);
 
 int parseFiles();
