@@ -1,14 +1,18 @@
 #pragma once
 
+#include <memory>
 #include <opencv2/core/mat.hpp>
 
+class PlatformFunctions {
+public:
+    enum class Keys {
+        KEY_LEFT,
+        KEY_RIGHT
+    };
 
-cv::Mat GetWindowCapture();
+    virtual cv::Mat GetWindowCapture() = 0;
+    virtual void pressKey(Keys key) = 0;
+    virtual void releaseKey(Keys key) = 0;
 
-enum class Keys {
-    KEY_LEFT,
-    KEY_RIGHT
+    static std::unique_ptr<PlatformFunctions> getForCurrentPlatform();
 };
-
-void pressKey(Keys key);
-void releaseKey(Keys key);

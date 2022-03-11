@@ -28,7 +28,9 @@ int playRealtime() {
 
     string fps;
 
-    optional<Keys> lastKey;
+    optional<PlatformFunctions::Keys> lastKey;
+
+    unique_ptr<PlatformFunctions> platformFunctions = PlatformFunctions::getForCurrentPlatform();
 
     char buff[50];
 
@@ -39,7 +41,7 @@ int playRealtime() {
     while (true) {
         timer = chrono::high_resolution_clock::now();
 
-        capture = GetWindowCapture();
+        capture = platformFunctions->GetWindowCapture();
         if (capture.data == NULL) {
             break;
         }
@@ -47,23 +49,23 @@ int playRealtime() {
         ParsedFrame frame(image);
 
         if (lastKey.has_value()) {
-            releaseKey(*lastKey);
+            platformFunctions->releaseKey(*lastKey);
             lastKey.reset();
         }
 
         if (frame.didFindPath()) {
             switch (frame.getNextDir()) {
             case ParsedFrame::Direction::DIR_LEFT:
-                lastKey = Keys::KEY_LEFT;
+                lastKey = PlatformFunctions::Keys::KEY_LEFT;
                 break;
             case ParsedFrame::Direction::DIR_RIGHT:
-                lastKey = Keys::KEY_RIGHT;
+                lastKey = PlatformFunctions::Keys::KEY_RIGHT;
                 break;
             default:
                 break;
             }
             if (lastKey.has_value()) {
-                pressKey(*lastKey);
+                platformFunctions->pressKey(*lastKey);
             }
         }
 
@@ -89,7 +91,7 @@ int playRealtime() {
         }
     }
     if (lastKey.has_value()) {
-        releaseKey(*lastKey);
+        platformFunctions->releaseKey(*lastKey);
         lastKey.reset();
     }
 

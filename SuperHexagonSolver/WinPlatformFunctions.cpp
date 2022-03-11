@@ -1,6 +1,6 @@
-#include "PlatformFunctions.h"
-
 #if _WIN32
+
+#include "WinPlatformFunctions.h"
 
 #include "Windows.h"
 #include "Gdiplus.h"
@@ -69,20 +69,55 @@ static Mat GdiPlusScreenCapture(HWND hWnd)
 }
 
 
-Mat GetWindowCapture() {
+Mat WinPlatformFunctions::GetWindowCapture() {
     HWND hexagonWindow = FindWindowA(NULL, "Super Hexagon");
     if (hexagonWindow == NULL)
         return {};
     return GdiPlusScreenCapture(hexagonWindow);
 }
-#elif __linux__ 
 
-using namespace cv;
+void WinPlatformFunctions::pressKey(Keys key) {
+    INPUT inkey;
+    inkey.type = INPUT_KEYBOARD;
+    switch (key) {
+    case Keys::KEY_LEFT:
+        inkey.ki.wVk = VK_LEFT;
+        break;
+    case Keys::KEY_RIGHT:
+        inkey.ki.wVk = VK_RIGHT;
+        break;
+    default:
+        assert(false);
+    }
 
-Mat GetWindowCapture() {
-    Mat out;
-    out.create(600, 980, CV_8UC4);
-    return out;
+    inkey.ki.wScan = MapVirtualKeyExW(inkey.ki.wVk, MAPVK_VK_TO_VSC, 0);
+    inkey.ki.dwFlags = 0;
+    inkey.ki.time = 0;
+    inkey.ki.dwExtraInfo = 0;
+
+    SendInput(1, &inkey, sizeof(inkey));
+}
+
+void WinPlatformFunctions::releaseKey(Keys key) {
+    INPUT inkey;
+    inkey.type = INPUT_KEYBOARD;
+    switch (key) {
+    case Keys::KEY_LEFT:
+        inkey.ki.wVk = VK_LEFT;
+        break;
+    case Keys::KEY_RIGHT:
+        inkey.ki.wVk = VK_RIGHT;
+        break;
+    default:
+        assert(false);
+    }
+
+    inkey.ki.wScan = MapVirtualKeyExW(inkey.ki.wVk, MAPVK_VK_TO_VSC, 0);
+    inkey.ki.dwFlags = KEYEVENTF_KEYUP;
+    inkey.ki.time = 0;
+    inkey.ki.dwExtraInfo = 0;
+
+    SendInput(1, &inkey, sizeof(inkey));
 }
 
 #endif
