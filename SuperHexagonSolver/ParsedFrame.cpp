@@ -5,8 +5,6 @@
 #include <cassert>
 #include <cmath>
 #include <algorithm>
-#include <limits>
-#include <format>
 #include <queue>
 #include <set>
 
@@ -223,11 +221,12 @@ Mat ParsedFrame::showPlottedPath() const {
     }
 
     //assert(gridPrecisionLevel > 0);
-    string searchInfo = std::format("Grid {}", gridPrecisionLevel);
-    putText(bgrthresh, searchInfo, Point(10, bgrthresh.size[0] - 40), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(255, 0, 255), 1);
+    char buff[50];
+    snprintf(buff, sizeof(buff), "Grid %d", gridPrecisionLevel);
+    putText(bgrthresh, buff, Point(10, bgrthresh.size[0] - 40), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(255, 0, 255), 1);
 
-    string threshInfo = std::format("Mean Val {:.4f}", meanVal);
-    putText(bgrthresh, threshInfo, Point(10, bgrthresh.size[0] - 20), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(255, 0, 255), 1);
+    snprintf(buff, sizeof(buff), "Mean val %.4f", meanVal);
+    putText(bgrthresh, buff, Point(10, bgrthresh.size[0] - 20), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(255, 0, 255), 1);
 
     return bgrthresh;
 }
@@ -306,7 +305,7 @@ Point2i lastDst(0, 0);
 double ParsedFrame::estimate_cost(Point2i from) {
     const Point2i& realPoint = realCoords.at<Point2i>(from);
     int distToOuterEdge = grid.size[0] - from.y;
-    double distToLastDst = norm(lastDst - realPoint);
+    // double distToLastDst = norm(lastDst - realPoint);
     double distToLeft = realPoint.x;
     double distToTop = realPoint.y;
     return  distToOuterEdge + 0.0005 * distToLeft + 0.0005 * distToTop;

@@ -7,7 +7,6 @@
 #include <iostream>
 #include <filesystem>
 #include <chrono>
-#include <format>
 #include <optional>
 
 #include "ParsedFrame.h"
@@ -29,7 +28,11 @@ int playRealtime() {
 
     string fps;
 
-    optional<Keys> lastKey;
+    optional<PlatformFunctions::Keys> lastKey;
+
+    unique_ptr<PlatformFunctions> platformFunctions = PlatformFunctions::getForCurrentPlatform();
+
+    char buff[50];
 
     #ifdef SAVE_VIDEO
     VideoWriter writer;
@@ -38,28 +41,32 @@ int playRealtime() {
     while (true) {
         timer = chrono::high_resolution_clock::now();
 
-        capture = GetWindowCapture();
+        capture = platformFunctions->GetWindowCapture();
         if (capture.data == NULL) {
+            cout << "Could not find the Super Hexagon window. Is the game running?" << endl;
             break;
         }
         cvtColor(capture, image, COLOR_BGRA2BGR);
         ParsedFrame frame(image);
 
         if (lastKey.has_value()) {
-            releaseKey(*lastKey);
+            platformFunctions->releaseKey(*lastKey);
             lastKey.reset();
         }
 
         if (frame.didFindPath()) {
             switch (frame.getNextDir()) {
             case ParsedFrame::Direction::DIR_LEFT:
-                lastKey = Keys::KEY_LEFT;
+                lastKey = PlatformFunctions::Keys::KEY_LEFT;
                 break;
             case ParsedFrame::Direction::DIR_RIGHT:
-                lastKey = Keys::KEY_RIGHT;
+                lastKey = PlatformFunctions::Keys::KEY_RIGHT;
+                break;
+            default:
+                break;
             }
             if (lastKey.has_value()) {
-                pressKey(*lastKey);
+                platformFunctions->pressKey(*lastKey);
             }
         }
 
@@ -68,9 +75,9 @@ int playRealtime() {
         vconcat(image, plotted, vis);
 
         timediff = chrono::duration_cast<chrono::milliseconds>(chrono::high_resolution_clock::now() - timer);
-        fps = std::format("{:.2f} FPS", 1000.0 / timediff.count());
+        snprintf(buff, sizeof(buff), "%.2f FPS", 1000.0 / timediff.count());
 
-        putText(vis, fps, Point(10, vis.size[0] - 60), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(255, 0, 255), 1);
+        putText(vis, buff, Point(10, vis.size[0] - 60), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(255, 0, 255), 1);
 
     #ifdef SAVE_VIDEO
         if (!writer.isOpened()) {
@@ -85,7 +92,7 @@ int playRealtime() {
         }
     }
     if (lastKey.has_value()) {
-        releaseKey(*lastKey);
+        platformFunctions->releaseKey(*lastKey);
         lastKey.reset();
     }
 
