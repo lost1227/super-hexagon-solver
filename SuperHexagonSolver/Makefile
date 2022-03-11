@@ -3,11 +3,11 @@ CPPFLAGS = -Wall -Werror -pedantic -std=c++2a -fPIC
 
 CPPFLAGS += -Wno-error=sign-compare
 
-CPPFLAGS += -g -O0
-# CPPFLAGS += -O3
+# CPPFLAGS += -g -O0
+CPPFLAGS += -Ofast -march=native
 
 CPPFLAGS += -DLITTLE_ENDIAN
-CPPFLAGS += -fsanitize=undefined -fsanitize=address
+# CPPFLAGS += -fsanitize=undefined -fsanitize=address
 
 SRCS = $(shell find . -name "*.cpp")
 OBJS = $(SRCS:.cpp=.o)
@@ -39,7 +39,7 @@ COMPILE.cpp = $(CXX) $(DEPFLAGS) $(CFLAGS) $(CPPFLAGS) $(INCLUDES) $(TARGET_ARCH
 all: $(MAIN)
 
 $(MAIN) : $(OBJS)
-	$(CXX) $(LINKFLAGS) $(CPPFLAGS) $(LIBDIRS) $(LIBRARIES) $(OBJS) -o $(MAIN)
+	$(CXX) $(LINKFLAGS) $(CPPFLAGS) $(OBJS) $(LIBDIRS) $(LIBRARIES) -o $(MAIN)
 
 $(DEPDIR): ; @mkdir -p $@
 
