@@ -21,16 +21,19 @@
     <ClCompile Include="ParsedFrame.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="ScreenCapture.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="PressKeys.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="PlayRealtime.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="ParseFiles.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="LinuxPlatformFunctions.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="PlatformFunctions.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="WinPlatformFunctions.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -42,6 +45,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="RunModes.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="LinuxPlatformFunctions.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="WinPlatformFunctions.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

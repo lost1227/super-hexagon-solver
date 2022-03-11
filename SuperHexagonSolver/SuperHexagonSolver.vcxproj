@@ -143,17 +143,20 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="LinuxPlatformFunctions.cpp" />
     <ClCompile Include="ParsedFrame.cpp" />
     <ClCompile Include="ParseFiles.cpp" />
-    <ClCompile Include="PressKeys.cpp" />
+    <ClCompile Include="PlatformFunctions.cpp" />
     <ClCompile Include="PlayRealtime.cpp" />
-    <ClCompile Include="ScreenCapture.cpp" />
     <ClCompile Include="SuperHexagonSolver.cpp" />
+    <ClCompile Include="WinPlatformFunctions.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="LinuxPlatformFunctions.h" />
     <ClInclude Include="ParsedFrame.h" />
     <ClInclude Include="PlatformFunctions.h" />
     <ClInclude Include="RunModes.h" />
+    <ClInclude Include="WinPlatformFunctions.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
